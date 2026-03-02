@@ -8,75 +8,94 @@ from schemas.analysis import (
     BatchAnalysisRequest,
     ReviewResponse,
 )
-from agents.data_agent import DataAgent
-from agents.technical_agent import TechnicalAgent
-from agents.fundamental_agent import FundamentalAgent
-from agents.master_agent import MasterAgent
-from agents.base import AgentInput
+from agents.master_agent import MasterAgent, MasterAgentInput, UserTrade, CurrentPosition
 from app.logging import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
 
 
-@router.post("/analysis", response_model=AnalysisResponse)
-async def analyze_stock(request: AnalysisRequest) -> AnalysisResponse:
-    """分析单只股票"""
+@router.post("/analysis")
+async def analyze_stock(request: AnalysisRequest):
+    """分析单只股票 - 完整综合分析"""
     logger.info(f"收到分析请求: {request.stock_code}")
     
-    # TODO: 实现完整的分析流程
-    # 1. Data Agent 收集数据
-    # 2. Technical Agent 技术分析
-    # 3. Fundamental Agent 基本面分析
-    # 4. Master Agent 生成建议
-    
-    # 临时返回
-    return AnalysisResponse(
-        stock_code=request.stock_code,
-        stock_name="",
-        signal="hold",
-        confidence=50,
-        lessons=[],
-        recommendation="请配置 OpenAI API Key 后使用完整功能"
-    )
+    try:
+        # 转换用户交易记录
+        user_trades = []
+        if request.user_trades:
+            for t in request.user_trades:
+                user_trades.append(UserTrade(
+                    direction=t.direction,
+                    price=t.price,
+                    quantity=t.quantity,
+                    trade_time=t.trade_time
+                ))
+        
+        # 转换持仓
+        position = None
+        if request.current_position:
+            position = CurrentPosition(
+                hold_quantity=request.current_position.hold_quantity,
+                avg_cost=request.current_position.avg_cost,
+                current_price=request.current_position.current_price
+            )
+        
+        # 使用 Master Agent 进行分析
+        agent = MasterAgent()
+        input_data = MasterAgentInput(
+            stock_code=request.stock_code,
+            user_trades=user_trades,
+            current_position=position
+        )
+        
+        result = await agent.run(input_data)
+        
+        if result.result.get("error"):
+            raise HTTPException(status_code=400, detail=result.result.get("error"))
+        
+        return result.result
+        
+    except Exception as e:
+        logger.error(f"分析失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/analysis/batch")
-async def batch_analyze(request: BatchAnalysisRequest) -> List[AnalysisResponse]:
+async def batch_analyze(request: BatchAnalysisRequest):
     """批量分析股票"""
     logger.info(f"收到批量分析请求: {len(request.stocks)} 只股票")
     
     results = []
     for stock_code in request.stocks:
         try:
-            result = await analyze_stock(AnalysisRequest(stock_code=stock_code))
-            results.append(result)
+            agent = MasterAgent()
+            input_data = MasterAgentInput(stock_code=stock_code)
+            result = await agent.run(input_data)
+            results.append(result.result)
         except Exception as e:
             logger.error(f"分析 {stock_code} 失败: {e}")
-            results.append(AnalysisResponse(
-                stock_code=stock_code,
-                stock_name="",
-                signal="error",
-                confidence=0,
-                lessons=[],
-                recommendation=f"分析失败: {str(e)}"
-            ))
+            results.append({
+                "stock_code": stock_code,
+                "error": str(e)
+            })
     
-    return results
+    return {"results": results}
 
 
 @router.get("/analysis/review")
-async def review_positions(type: str = "cleared") -> ReviewResponse:
+async def review_positions(type: str = "cleared"):
     """复盘已清仓股票"""
     logger.info(f"收到复盘请求: type={type}")
     
-    # TODO: 实现复盘逻辑
-    return ReviewResponse(
-        summary={
+    # TODO: 实现从数据库获取已清仓股票进行复盘
+    return {
+        "summary": {
             "total_trades": 0,
             "win_rate": 0,
             "total_profit": 0,
             "avg_holding_days": 0
         },
-        positions=[]
-    )
+        "positions": [],
+        "message": "复盘功能待实现，需集成数据库"
+    }
