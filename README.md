@@ -21,7 +21,7 @@ StockAgent 是一个智能股票交易分析系统，通过结合用户的买卖
 │  └─────────────────────────────────────────────────────────────┘│
 │                           ↓                                      │
 │  ┌─────────────────────────────────────────────────────────────┐│
-│  │              LLM (OpenAI GPT-4)                            ││
+│  │        LLM (Ollama Qwen2.5:14B / OpenAI GPT-4)            ││
 │  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -30,7 +30,7 @@ StockAgent 是一个智能股票交易分析系统，通过结合用户的买卖
 
 - **Agent 框架**: LangChain + LangGraph
 - **Python 后端**: FastAPI
-- **LLM**: OpenAI GPT-4
+- **LLM**: Ollama Qwen2.5:14B (本地部署) / OpenAI GPT-4
 - **数据获取**: 东方财富 API, yFinance
 
 ## 快速开始
@@ -45,17 +45,33 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# 编辑 .env 文件，填入你的 API Key
+# 编辑 .env 文件
+```
+
+**推荐使用 Ollama 本地部署** (无需 API Key):
+
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=qwen2.5:14b
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+**或者使用 OpenAI**:
+
+```env
+LLM_PROVIDER=openai
+OPENAI_API_KEY=your_api_key_here
+OPENAI_MODEL=gpt-4
 ```
 
 ### 3. 运行服务
 
 ```bash
-# 开发模式
-python -m uvicorn app.main:app --reload
+# 确保 Ollama 已启动并加载模型
+# ollama run qwen2.5:14b
 
-# 或者
-python app/main.py
+# 启动 FastAPI 服务
+python -m uvicorn app.main:app --reload
 ```
 
 ### 4. 访问 API
@@ -103,6 +119,7 @@ stockAgent/
 ├── app/                    # 应用入口
 │   ├── config.py           # 配置管理
 │   ├── logging.py          # 日志配置
+│   ├── llm.py              # LLM 配置
 │   └── main.py             # FastAPI 应用
 ├── agents/                 # Agent 实现
 │   ├── base.py             # 基础 Agent 类
@@ -112,7 +129,8 @@ stockAgent/
 │   └── master_agent.py     # Master Agent
 ├── tools/                  # 工具函数
 │   ├── stock_data.py       # 股票数据获取
-│   └── indicators.py       # 技术指标计算
+│   ├── indicators.py       # 技术指标计算
+│   └── fundamental_data.py # 基本面数据
 ├── api/routes/             # API 路由
 ├── schemas/               # Pydantic 模型
 ├── requirements.txt
