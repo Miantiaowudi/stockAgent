@@ -77,6 +77,90 @@ class MasterAgent(BaseAgent):
         if not llm:
             return None
         
+        # 构建提示词 - 参考专业分析报告格式
+        prompt = ChatPromptTemplate.from_template("""你是一位专业、资深的股票投资顾问。请根据用户提供的成交明细和技术面、基本面分析，生成一份专业、详细的投资分析报告。
+
+股票信息:
+- 股票名称: {stock_name}
+- 股票代码: {stock_code}
+- 当前价格: ¥{current_price}
+
+用户交易明细:
+{user_trades}
+
+技术分析数据:
+{technical_analysis}
+
+基本面分析数据:
+{fundamental_analysis}
+
+请生成以下格式的分析报告（JSON格式）:
+{{
+    "signal": "买入/持有/减持/观望",
+    "confidence": 85,
+    
+    // 财务盘点 - 详细计算用户的买卖情况
+    "financial_summary": {{
+        "total_buy_amount": "买入总额 XX元",
+        "avg_buy_price": "买入均价 XX元",
+        "total_sell_amount": "卖出总额 XX元", 
+        "avg_sell_price": "卖出均价 XX元",
+        "current_hold_quantity": "当前持仓 XX股",
+        "current_cost": "持仓成本 XX元/股",
+        "profit_loss": "浮盈/浮亏 XX%"
+    }},
+    
+    // 市场局势分析
+    "market_analysis": {{
+        "recent_trend": "近期走势分析",
+        "support_resistance": "支撑位和压力位分析",
+        "news": "相关利好/利空消息"
+    }},
+    
+    // 操作建议
+    "recommendations": [
+        {{
+            "type": "激进/稳健/保守",
+            "title": "方案名称",
+            "reason": "操作理由",
+            "action": "具体动作",
+            "target": "目标价位"
+        }}
+    ],
+    
+    // 核心提醒
+    "tips": ["提醒1", "提醒2"],
+    
+    // 经验教训（基于用户买卖时机）
+    "lessons": [
+        {{"type": "success/warning/tip", "content": "具体内容"}}
+    ],
+    
+    // 简短总结
+    "summary": "一句话总结建议"
+}}
+
+重要要求：
+1. 必须进行详细的财务计算（买入总额、均价、卖出总额、均价、当前持仓成本）
+2. 根据当前价格和用户持仓成本，计算出浮盈或浮亏的百分比
+3. 技术分析要结合当前价格位置（支撑位/压力位）
+4. 建议要具体，包含具体价位
+5. lessons 中的 type 只能是 success, warning, 或 tip
+6. 只返回 JSON，不要其他内容
+""")
+        self,
+        stock_name: str,
+        stock_code: str,
+        current_price: float,
+        user_trades: List[Dict],
+        technical_result: Dict,
+        fundamental_result: Dict
+    ) -> Dict[str, Any]:
+        """使用 LLM 生成智能分析"""
+        llm = self._get_llm()
+        if not llm:
+            return None
+        
         # 构建提示词
         prompt = ChatPromptTemplate.from_template("""你是一个专业的股票投资顾问。请根据以下信息生成投资分析和建议。
 
